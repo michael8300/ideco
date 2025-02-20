@@ -49,6 +49,7 @@ class Ideco:
             return response
         except requests.exceptions.HTTPError as e:
             print(f"HTTP error occurred: {e}")
+            print(response.content)
             return None
 
     def parse_json(self, response):
@@ -96,52 +97,80 @@ class Ideco:
         url = f'{self.base_url}/aliases/ip_address_lists'
         return self.get_from_endpoint(url)
 
+
     def block_user(self, username):
-        block_rule = self.find_rule_for_block()
-        user_id = self.find_user(username)
-        block_rule['source_addresses'].append(f"user.id.{user_id}")
-        url = f'{self.base_url}/firewall/rules/forward/{block_rule.pop("id")}'
-        data = block_rule
-        response = self.put_to_endpoint(url, data)
-        if response is not None:
-            print(f'Пользователь {username} заблокирован')
+        if self.check_status_user(username):
+            print(f'Пользователь {username} уже заблокирован')
+            return
         else:
-            print(f'Не удалось заблокировать пользователя {username}')
+            block_rule = self.find_rule_for_block()
+            user_id = self.find_user(username)
+            block_rule['source_addresses'].append(f"user.id.{user_id}")
+            url = f'{self.base_url}/firewall/rules/forward/{block_rule.pop("id")}'
+            data = block_rule
+            response = self.put_to_endpoint(url, data)
+            if response is not None:
+                print(f'Пользователь {username} заблокирован')
+            else:
+                print(f'Не удалось заблокировать пользователя {username}')
 
     def unblock_user(self, username):
-        block_rule = self.find_rule_for_block()
-        user_id = self.find_user(username)
-        block_rule['source_addresses'].remove(f"user.id.{user_id}")
-        url = f'{self.base_url}/firewall/rules/forward/{block_rule.pop("id")}'
-        data = block_rule
-        response = self.put_to_endpoint(url, data)
-        if response is not None:
-            print(f'Пользователь {username} разблокирован')
+        if not self.check_status_user(username):
+            print(f'Пользователь {username} не блокируется')
+            return
         else:
-            print(f'Не удалось разблокировать пользователя {username}')
+            block_rule = self.find_rule_for_block()
+            user_id = self.find_user(username)
+            block_rule['source_addresses'].remove(f"user.id.{user_id}")
+            url = f'{self.base_url}/firewall/rules/forward/{block_rule.pop("id")}'
+            data = block_rule
+            response = self.put_to_endpoint(url, data)
+            if response is not None:
+                print(f'Пользователь {username} разблокирован')
+            else:
+                print(f'Не удалось разблокировать пользователя {username}')
 
     def block_ip(self, address):
-        blocklist_id, data = self.find_blocklist()
-        data['values'].append(address)
-        data.pop('type', None)
-        url = f'{self.base_url}/aliases/ip_address_lists/{blocklist_id}'
-        response = self.put_to_endpoint(url, data)
-        if response is not None:
-            print(f'Адрес {address} заблокирован')
+        if self.check_status_ip(address):
+            print(f'Адрес {address} уже заблокирован')
+            return
         else:
-            print(f'Не удалось заблокировать адрес {address}')
+            blocklist_id, data = self.find_blocklist()
+            data['values'].append(address)
+            data.pop('type', None)
+            url = f'{self.base_url}/aliases/ip_address_lists/{blocklist_id}'
+            response = self.put_to_endpoint(url, data)
+            if response is not None:
+                print(f'Адрес {address} заблокирован')
+            else:
+                print(f'Не удалось заблокировать адрес {address}')
 
     def unblock_ip(self, address):
-        blocklist_id, data = self.find_blocklist()
-        data['values'].remove(address)
-        data.pop('type', None)
-        url = f'{self.base_url}/aliases/ip_address_lists/{blocklist_id}'
-        response = self.put_to_endpoint(url, data)
-        if response is not None:
-            print(f'Адрес {address} разблокирован')
+        if not self.check_status_ip(address):
+            print(f'Адрес {address} не блокируется')
+            return
         else:
-            print(f'Не удалось разблокировать адрес {address}')
+            blocklist_id, data = self.find_blocklist()
+            data['values'].remove(address)
+            data.pop('type', None)
+            url = f'{self.base_url}/aliases/ip_address_lists/{blocklist_id}'
+            response = self.put_to_endpoint(url, data)
+            if response is not None:
+                print(f'Адрес {address} разблокирован')
+            else:
+                print(f'Не удалось разблокировать адрес {address}')
 
+    def check_status_ip(self, address):
+        if address in self.find_blocklist()[1]['values']:
+            return True
+        else:
+            return False
+
+    def check_status_user(self, username):
+        if (f"user.id.{self.find_user(username)}") in self.find_rule_for_block()['source_addresses']:
+            return True
+        else:
+            return False
 
     def find_rule_for_block(self):
         for rule in self.get_rules_list():
@@ -168,5 +197,6 @@ class Ideco:
 
 with Ideco(ip='', port='8443', user='', password='') as api_client:
     # print(api_client.block_user(''))
-    print(api_client.block_ip(''))
+    print(api_client.unblock_ip(''))
+
 
