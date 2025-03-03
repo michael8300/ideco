@@ -64,11 +64,12 @@ def check_ip_in_ipset(dataframe_ipset, ips_to_check, name):
         int_ip_addr_to_check = ip_to_int(ip)
         match = ((int_ip_addr_to_check & dataframe_ipset['netmask']) == (dataframe_ipset['int_ip_addr'] & dataframe_ipset['netmask']))
         if match.any():
-            matches = dataframe_ipset[match][['ip', 'port']].set_index('ip')['port'].to_dict()
-            for ip, ports in matches.items():
+            matches = dataframe_ipset[match][['ip', 'prefix_len', 'port']].set_index('ip')[['prefix_len', 'port']].to_dict('index')
+            for ip, data in matches.items():
+                ip_with_mask = f"{ip}/{data['prefix_len']}"
                 if name not in final_results:
                     final_results[name] = {}
-                final_results[name][ip] = ports
+                final_results[name][ip_with_mask] = data['port']
     return final_results
 
 
